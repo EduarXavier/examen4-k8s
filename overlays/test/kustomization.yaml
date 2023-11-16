@@ -9,6 +9,7 @@ resources:
   - ../../bases/frontend
   - ../../bases/db
   - namespace.yaml
+  - limitRange.yaml
 
 patches:
   - path: patches/db/deployment.yaml
