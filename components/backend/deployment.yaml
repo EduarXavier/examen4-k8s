@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: back-deployment
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: back-pod
+  template:
+    metadata: 
+      labels: 
+        name: back-pod
+    spec: 
+      containers:
+      - name: back-container
+        image: back-go-examen
+        imagePullPolicy: IfNotPresent

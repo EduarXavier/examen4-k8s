@@ -1,0 +1,263 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+spec: {}
+---
+apiVersion: v1
+data:
+  server: |-
+    upstream server {
+        server dev-back-service:8080;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            proxy_pass http://server;
+        }
+    }
+kind: ConfigMap
+metadata:
+  name: dev-front-index-6k54722k4t
+  namespace: dev
+---
+apiVersion: v1
+data:
+  PASSWORD: root
+kind: ConfigMap
+metadata:
+  name: dev-mysql-root-password-m4446bbdg2
+  namespace: dev
+---
+apiVersion: v1
+data:
+  server: |-
+    upstream server {
+        server dev-front-service:80;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            proxy_pass http://server;
+        }
+    }
+kind: ConfigMap
+metadata:
+  name: dev-proxy-server-6h69hft95c
+  namespace: dev
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: backend
+    owner: eduar
+  name: dev-back-service
+  namespace: dev
+spec:
+  ports:
+  - name: http-backend
+    port: 8080
+    protocol: TCP
+  selector:
+    name: back-pod
+    owner: eduar
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: db
+    owner: eduar
+  name: dev-db-service
+  namespace: dev
+spec:
+  ports:
+  - name: http-db
+    port: 3306
+    protocol: TCP
+  selector:
+    name: db-pod
+    owner: eduar
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: frontend
+    owner: eduar
+  name: dev-front-service
+  namespace: dev
+spec:
+  ports:
+  - name: http-frontend
+    port: 80
+    protocol: TCP
+  selector:
+    name: front-pod
+    owner: eduar
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: proxy
+    owner: eduar
+  name: dev-proxy-service
+  namespace: dev
+spec:
+  ports:
+  - name: http-proxy
+    port: 80
+    protocol: TCP
+  selector:
+    name: proxy-pod
+    owner: eduar
+  type: NodePort
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limit-range
+  namespace: dev
+spec:
+  limits:
+  - default:
+      cpu: 0.5
+      memory: 256Mi
+    defaultRequest:
+      cpu: 0.25
+      memory: 128Mi
+    type: Container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: backend
+    owner: eduar
+  name: dev-back-deployment
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: back-pod
+      owner: eduar
+  template:
+    metadata:
+      labels:
+        name: back-pod
+        owner: eduar
+    spec:
+      containers:
+      - image: back-go-examen
+        imagePullPolicy: IfNotPresent
+        name: back-container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: db
+    owner: eduar
+  name: dev-db-deployment
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: db-pod
+      owner: eduar
+  template:
+    metadata:
+      labels:
+        name: db-pod
+        owner: eduar
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              key: PASSWORD
+              name: dev-mysql-root-password-m4446bbdg2
+        image: mysql
+        name: db-container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend
+    owner: eduar
+  name: dev-front-deployment
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: front-pod
+      owner: eduar
+  template:
+    metadata:
+      labels:
+        name: front-pod
+        owner: eduar
+    spec:
+      containers:
+      - image: nginx:alpine
+        name: front-container
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d
+          name: front-index
+      volumes:
+      - configMap:
+          items:
+          - key: server
+            path: default.conf
+          name: dev-front-index-6k54722k4t
+        name: front-index
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: proxy
+    owner: eduar
+  name: dev-proxy-deployment
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: proxy-pod
+      owner: eduar
+  template:
+    metadata:
+      labels:
+        name: proxy-pod
+        owner: eduar
+    spec:
+      containers:
+      - image: nginx:alpine
+        name: proxy-container
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d
+          name: server-volume
+      volumes:
+      - configMap:
+          items:
+          - key: server
+            path: default.conf
+          name: dev-proxy-server-6h69hft95c
+        name: server-volume

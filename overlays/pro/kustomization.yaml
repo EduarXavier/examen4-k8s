@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: pro
+namePrefix: pro-
+
+resources:
+  - ../../bases
+  - namespace.yaml
+  - limitRange.yaml
+
+patches:
+  - path: patches/db/deployment.yaml
+  - path: patches/proxy/deployment.yaml
+  - path: patches/frontend/deployment.yaml
+  - target:
+      kind: Deployment
+      name: db-deployment
+    patch: |
+      - op: remove
+        path: /spec/template/spec/containers/0/env/0/value
+
+configMapGenerator:
+  - name: proxy-server
+    files:
+    - server=configmaps/proxy/nginx.conf
+  - name: front-index
+    files:
+    - server=configmaps/frontend/nginx.conf
+
+secretGenerator:
+  - name: proxy-ssl
+    files:
+      - tls.crt=secrets/proxy/nginx-selfsigned.crt
+      - tls.key=secrets/proxy/nginx-selfsigned.key
+    type: "kubernetes.io/tls"
+  - name: mysql-root-password
+    files:
+    - PASSWORD=secrets/db/rootPassword.txt

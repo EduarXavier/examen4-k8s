@@ -1,0 +1,35 @@
+replicaCount: 3
+
+resources:
+  limits:
+    cpu: 100m
+    memory: 128Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+
+service:
+  type: LoadBalancer
+  ports:
+    http: 80
+  targetPort:
+    http: http
+
+serverBlock: |-
+  upstream server {
+    server test-front-service:80;
+  }
+
+  server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+      proxy_pass http://server;
+    }
+  }

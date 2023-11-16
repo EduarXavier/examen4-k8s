@@ -1,0 +1,337 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+spec: {}
+---
+apiVersion: v1
+data:
+  server: |-
+    upstream server {
+        server test-back-service:8080;
+    }
+
+    server {
+        listen 80;
+        server_name localhost;
+
+        location / {
+            proxy_pass http://server;
+        }
+    }
+kind: ConfigMap
+metadata:
+  name: test-front-index-gkk9hfmhfd
+  namespace: test
+---
+apiVersion: v1
+data:
+  PASSWORD: test
+kind: ConfigMap
+metadata:
+  name: test-mysql-root-password-4g6ckffghh
+  namespace: test
+---
+apiVersion: v1
+data:
+  server-block.conf: |-
+    upstream server {
+      server test-front-service:80;
+    }
+
+    server {
+      listen 80;
+      server_name localhost;
+
+      location / {
+        proxy_pass http://server;
+      }
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nginx
+    app.kubernetes.io/version: 1.25.3
+    helm.sh/chart: nginx-15.4.2
+  name: test-nginx-server-block
+  namespace: test
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: backend
+  name: test-back-service
+  namespace: test
+spec:
+  ports:
+  - name: http-backend
+    port: 8080
+    protocol: TCP
+  selector:
+    name: back-pod
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: db
+  name: test-db-service
+  namespace: test
+spec:
+  ports:
+  - name: http-db
+    port: 3306
+    protocol: TCP
+  selector:
+    name: db-pod
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: frontend
+  name: test-front-service
+  namespace: test
+spec:
+  ports:
+  - name: http-frontend
+    port: 80
+    protocol: TCP
+  selector:
+    name: front-pod
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nginx
+    app.kubernetes.io/version: 1.25.3
+    helm.sh/chart: nginx-15.4.2
+  name: test-nginx
+  namespace: test
+spec:
+  externalTrafficPolicy: Cluster
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+  selector:
+    app.kubernetes.io/instance: nginx
+    app.kubernetes.io/name: nginx
+  sessionAffinity: None
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: backend
+  name: test-back-deployment
+  namespace: test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: back-pod
+  template:
+    metadata:
+      labels:
+        name: back-pod
+    spec:
+      containers:
+      - image: back-go-examen
+        imagePullPolicy: IfNotPresent
+        name: back-container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: db
+  name: test-db-deployment
+  namespace: test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: db-pod
+  template:
+    metadata:
+      labels:
+        name: db-pod
+    spec:
+      containers:
+      - env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              key: PASSWORD
+              name: test-mysql-root-password-4g6ckffghh
+        image: mysql
+        name: db-container
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: frontend
+  name: test-front-deployment
+  namespace: test
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: front-pod
+  template:
+    metadata:
+      labels:
+        name: front-pod
+    spec:
+      containers:
+      - image: nginx:alpine
+        name: front-container
+        volumeMounts:
+        - mountPath: /etc/nginx/conf.d
+          name: front-index
+      volumes:
+      - configMap:
+          items:
+          - key: server
+            path: default.conf
+          name: test-front-index-gkk9hfmhfd
+        name: front-index
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nginx
+    app.kubernetes.io/version: 1.25.3
+    helm.sh/chart: nginx-15.4.2
+  name: test-nginx
+  namespace: test
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: nginx
+      app.kubernetes.io/name: nginx
+  strategy:
+    rollingUpdate: {}
+    type: RollingUpdate
+  template:
+    metadata:
+      annotations:
+        checksum/server-block-configuration: c3bcdbf7df02eae2d2dfb7c96039097ea3520b87848b6e96ff56a514f6f7c481
+      labels:
+        app.kubernetes.io/instance: nginx
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: nginx
+        app.kubernetes.io/version: 1.25.3
+        helm.sh/chart: nginx-15.4.2
+    spec:
+      affinity:
+        nodeAffinity: null
+        podAffinity: null
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/instance: nginx
+                  app.kubernetes.io/name: nginx
+              topologyKey: kubernetes.io/hostname
+            weight: 1
+      automountServiceAccountToken: false
+      containers:
+      - env:
+        - name: BITNAMI_DEBUG
+          value: "false"
+        - name: NGINX_HTTP_PORT_NUMBER
+          value: "8080"
+        envFrom: null
+        image: docker.io/bitnami/nginx:1.25.3-debian-11-r1
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          failureThreshold: 6
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          successThreshold: 1
+          tcpSocket:
+            port: http
+          timeoutSeconds: 5
+        name: nginx
+        ports:
+        - containerPort: 8080
+          name: http
+        readinessProbe:
+          failureThreshold: 3
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
+          tcpSocket:
+            port: http
+          timeoutSeconds: 3
+        resources:
+          limits:
+            cpu: 100m
+            memory: 128Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          seccompProfile:
+            type: RuntimeDefault
+        volumeMounts:
+        - mountPath: /opt/bitnami/nginx/conf/server_blocks
+          name: nginx-server-block
+      hostIPC: false
+      hostNetwork: false
+      initContainers: null
+      securityContext:
+        fsGroup: 1001
+        sysctls: []
+      serviceAccountName: default
+      shareProcessNamespace: false
+      volumes:
+      - configMap:
+          name: test-nginx-server-block
+        name: nginx-server-block
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  labels:
+    app.kubernetes.io/instance: nginx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nginx
+    app.kubernetes.io/version: 1.25.3
+    helm.sh/chart: nginx-15.4.2
+  name: test-nginx
+  namespace: test
+spec:
+  maxReplicas: 10
+  metrics: null
+  minReplicas: 3
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: test-nginx

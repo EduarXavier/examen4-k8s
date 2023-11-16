@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-deployment
+  labels:
+    app: frontend
+spec:
+  template:
+    spec: 
+      containers:
+      - name: front-container
+        volumeMounts:
+          - name: front-index
+            mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: front-index
+          configMap: 
+            name: front-index
+            items:
+              - key: server
+                path: default.conf

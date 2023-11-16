@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+namePrefix: dev-
+
+resources:
+  - ../../bases
+  - namespace.yaml
+  - limitRange.yaml
+
+patches:
+  - path: patches/db/deployment.yaml
+  - path: patches/proxy/deployment.yaml
+  - path: patches/frontend/deployment.yaml
+  - target:
+      kind: Deployment
+      name: db-deployment
+    patch: |
+      - op: remove
+        path: /spec/template/spec/containers/0/env/0/value
+  - target:
+      kind: Service
+      name: proxy-service
+    patch: |
+      - op: remove
+        path: /spec/ports/1
+
+configMapGenerator:
+  - name: mysql-root-password
+    envs:
+    - configmaps/db/rootPassword.txt
+  - name: proxy-server
+    files:
+    - server=configmaps/proxy/nginx.conf
+  - name: front-index
+    files:
+    - server=configmaps/frontend/nginx.conf

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db-deployment
+  labels:
+    app: db
+spec:
+  template:
+    spec: 
+      containers:
+      - name: db-container
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            configMapKeyRef:
+              name: mysql-root-password
+              key: PASSWORD

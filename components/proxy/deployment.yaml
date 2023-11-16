@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: proxy-deployment
+  labels:
+    app: proxy
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      name: proxy-pod
+  template:
+    metadata: 
+      labels: 
+        name: proxy-pod
+    spec: 
+      containers:
+      - name: proxy-container
+        image: nginx:alpine
